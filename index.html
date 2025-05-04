@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor con Vista Previa</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/theme/dracula.min.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            background-color: #282a36; /* Fondo oscuro */
+        }
+
+        .editor-container, .preview-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor-container {
+            border-right: 2px solid #44475a; /* Separador visual */
+        }
+
+        .preview-container iframe {
+            flex: 1;
+            border: none;
+            background-color: #f8f8f2; /* Fondo claro para la vista previa */
+        }
+
+        .CodeMirror {
+            height: 100%;
+            font-size: 14px;
+            background-color: #282a36 !important; /* Fondo del editor */
+            color: #f8f8f2 !important; /* Color del texto */
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container" id="editor-container">
+        <div id="editor"></div>
+    </div>
+    <div class="preview-container">
+        <iframe id="preview"></iframe>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/javascript/javascript.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/htmlmixed/htmlmixed.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/xml/xml.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/css/css.js"></script>
+    <script>
+        // Inicializar CodeMirror
+        const editorElement = document.getElementById('editor');
+        const previewIframe = document.getElementById('preview');
+
+        const editor = CodeMirror(editorElement, {
+            mode: 'htmlmixed', // Resalta HTML, CSS y JS
+            theme: 'dracula', // Tema oscuro
+            lineNumbers: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
+            lineWrapping: true // Ajusta líneas largas
+        });
+
+        // Actualizar la vista previa en tiempo real
+        editor.on('change', () => {
+            const content = editor.getValue();
+            previewIframe.srcdoc = content; // Actualiza el contenido del iframe
+        });
+
+        // Código inicial vacío
+        editor.setValue("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Vista Previa</title>\n</head>\n<body>\n    <h1>¡Hola, mundo!</h1>\n</body>\n</html>");
+    </script>
+</body>
+</html>
