@@ -1,9 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Editor Emmet con Pestañas</title>
+  <title>Editor de Proyectos</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.34.1/min/vs/editor/editor.main.css">
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.34.1/min/vs/loader.js"></script>
+
   <style>
     body {
       margin: 0;
@@ -11,211 +15,175 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
+      overflow: hidden;
     }
+
     #tab-bar {
       display: flex;
-      background: #222;
-      color: white;
+      background: #1e1e1e;
       padding: 5px;
       align-items: center;
     }
+
     .tab {
-      background: #444;
-      padding: 5px 10px;
-      margin-right: 5px;
-      border-radius: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-    }
-    .tab.active {
-      background: #666;
-    }
-    .tab input {
       background: transparent;
-      border: none;
       color: white;
-      width: 80px;
+      border: none;
+      padding: 8px 16px;
+      margin-right: 5px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.3s;
+      border-radius: 5px;
     }
-    .tab .close {
-      margin-left: 5px;
+
+    .tab.active {
+      background: #333;
+    }
+
+    .tab .close-btn {
+      position: absolute;
+      top: 2px;
+      right: 4px;
+      color: #aaa;
+      font-weight: bold;
       cursor: pointer;
     }
-    #add-tab {
-      background: #28a745;
-      border: none;
-      padding: 5px 10px;
+
+    #add-tab-btn {
+      background: #444;
       color: white;
-      border-radius: 4px;
+      border: none;
+      padding: 6px 10px;
       cursor: pointer;
+      border-radius: 5px;
     }
-    #editor {
-      flex: 1;
+
+    #main {
       display: flex;
+      flex: 1;
       overflow: hidden;
     }
-    #monaco {
+
+    #editor-container {
       width: 50%;
       height: 100%;
     }
+
     #preview {
       width: 50%;
       height: 100%;
       border: none;
+      background: white;
     }
   </style>
 </head>
 <body>
+
   <div id="tab-bar">
-    <button id="add-tab">+ Nueva Pestaña</button>
+    <button id="add-tab-btn">+ Nuevo</button>
   </div>
-  <div id="editor">
-    <div id="monaco"></div>
+
+  <div id="main">
+    <div id="editor-container"></div>
     <iframe id="preview"></iframe>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
   <script>
-    let tabs = [];
-    let currentTab = null;
+    require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.34.1/min/vs' } });
 
-    require.config({ paths: { vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs" } });
-    require(["vs/editor/editor.main"], function () {
-      window.createEditor = function (value = "") {
-        return monaco.editor.create(document.getElementById("monaco"), {
-          value,
-          language: "html",
-          theme: "vs-dark",
-          automaticLayout: true,
-        });
-      };
+    require(['vs/editor/editor.main'], function () {
+      const projects = {};
+      let currentId = null;
+      let tabCounter = 1;
 
-      function createTab(name = "Proyecto") {
-        const id = "tab" + Date.now();
-        const data = {
-          id,
-          name,
-          html: "",
-          css: "",
-          js: "",
-          editor: null
-        };
-        tabs.push(data);
-        renderTabs();
-        switchTab(id);
+      const editor = monaco.editor.create(document.getElementById('editor-container'), {
+        value: '',
+        language: 'html',
+        theme: 'vs-dark',
+        automaticLayout: true
+      });
+
+      function updatePreview() {
+        const content = editor.getValue();
+        document.getElementById('preview').srcdoc = content;
       }
 
-function renderTabs() {
-  const tabBar = document.getElementById("tab-bar");
-  tabBar.innerHTML = "";
-  tabs.forEach((tab) => {
-    const el = document.createElement("div");
-    el.className = "tab" + (tab.id === currentTab ? " active" : "");
+      editor.onDidChangeModelContent(updatePreview);
 
-    const input = document.createElement("input");
-    input.value = tab.name;
-    input.oninput = () => {
-      tab.name = input.value;
-    };
-    input.onclick = (e) => e.stopPropagation();
-    el.appendChild(input);
+      function switchProject(id) {
+        if (!projects[id]) return;
+        projects[currentId] = { ...projects[currentId], model: editor.getModel() };
 
-    const close = document.createElement("span");
-    close.className = "close";
-    close.textContent = "✕";
-    close.onclick = (e) => {
-      e.stopPropagation();
-      tabs = tabs.filter((t) => t.id !== tab.id);
-      if (currentTab === tab.id && tabs.length > 0) {
-        switchTab(tabs[0].id);
-      } else if (tabs.length === 0) {
-        currentTab = null;
-        editor.dispose();
-      }
-      renderTabs();
-    };
+        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        const tab = document.querySelector(`.tab[data-id="${id}"]`);
+        if (tab) tab.classList.add('active');
 
-    el.onclick = () => switchTab(tab.id);
-    el.appendChild(close);
-    tabBar.appendChild(el);
-  });
-
-  const addBtn = document.createElement("button");
-  addBtn.id = "add-tab";
-  addBtn.textContent = "+ Nueva Pestaña";
-  addBtn.onclick = () => createTab();
-  tabBar.appendChild(addBtn);
-}
-
-      let editor;
-      function switchTab(id) {
-        const tab = tabs.find((t) => t.id === id);
-        if (!tab) return;
-        if (editor) {
-          const model = editor.getModel();
-          const code = model.getValue();
-          if (model.getLanguageId() === "html") tab.html = code;
-          if (model.getLanguageId() === "css") tab.css = code;
-          if (model.getLanguageId() === "javascript") tab.js = code;
-          editor.dispose();
-        }
-
-        currentTab = id;
-        renderTabs();
-
-        const htmlModel = monaco.editor.createModel(tab.html, "html");
-        editor = monaco.editor.create(document.getElementById("monaco"), {
-          model: htmlModel,
-          theme: "vs-dark",
-        });
-
-        // Emmet Tab support
-        editor.addCommand(monaco.KeyCode.Tab, () => {
-          if (editor.getModel().getLanguageId() === "html" ||
-              editor.getModel().getLanguageId() === "css" ||
-              editor.getModel().getLanguageId() === "javascript") {
-            window.emmetMonaco.emmetHTML.expandAbbreviation(editor);
-          }
-        });
-
-        editor.onDidChangeModelContent(() => updatePreview());
+        currentId = id;
+        editor.setModel(projects[id].model);
         updatePreview();
       }
 
-      function updatePreview() {
-        const tab = tabs.find((t) => t.id === currentTab);
-        if (!tab || !editor) return;
-        const code = editor.getValue();
-        const lang = editor.getModel().getLanguageId();
-        if (lang === "html") tab.html = code;
-        if (lang === "css") tab.css = code;
-        if (lang === "javascript") tab.js = code;
-        const output = `
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <style>${tab.css}</style>
-          </head>
-          <body>
-            ${tab.html}
-            <script>${tab.js}<\/script>
-          </body>
-          </html>
-        `;
-        const iframe = document.getElementById("preview");
-        iframe.srcdoc = output;
+      function createTab() {
+        const id = crypto.randomUUID();
+        const name = `Proyecto ${tabCounter++}`;
+        const model = monaco.editor.createModel('', 'html');
+
+        projects[id] = { name, model };
+
+        const tab = document.createElement('button');
+        tab.className = 'tab';
+        tab.dataset.id = id;
+        tab.innerHTML = `<span class="tab-name">${name}</span> <span class="close-btn">×</span>`;
+        tab.onclick = () => switchProject(id);
+        tab.ondblclick = () => renameTab(id);
+        tab.querySelector('.close-btn').onclick = (e) => {
+          e.stopPropagation();
+          closeTab(id);
+        };
+
+        const addBtn = document.getElementById('add-tab-btn');
+        addBtn.parentNode.insertBefore(tab, addBtn);
+
+        switchProject(id);
       }
 
-      createTab("Proyecto 1");
-    });
+      function renameTab(id) {
+        const current = projects[id];
+        const newName = prompt('Nuevo nombre del proyecto:', current.name);
+        if (!newName || newName === current.name) return;
 
-    // Emmet Monaco Load
-    const script = document.createElement("script");
-    script.src = "https://unpkg.com/@emmetio/monaco-plugin/dist/emmet-monaco.min.js";
-    script.onload = () => {
-      window.emmetMonaco.emmetHTML(monaco);
-    };
-    document.head.appendChild(script);
+        current.name = newName;
+        const tab = document.querySelector(`.tab[data-id="${id}"] .tab-name`);
+        if (tab) tab.textContent = newName;
+      }
+
+      function closeTab(id) {
+        if (Object.keys(projects).length <= 1) {
+          alert('Debe haber al menos un proyecto.');
+          return;
+        }
+
+        delete projects[id];
+        const tab = document.querySelector(`.tab[data-id="${id}"]`);
+        if (tab) tab.remove();
+
+        if (currentId === id) {
+          const remainingIds = Object.keys(projects);
+          switchProject(remainingIds[0]);
+        }
+      }
+
+      // Exponer funciones globalmente
+      window.renameTab = renameTab;
+      window.closeTab = closeTab;
+
+      // Activar botón de crear
+      document.getElementById('add-tab-btn').onclick = createTab;
+
+      // Crear la primera pestaña
+      createTab();
+    });
   </script>
 </body>
 </html>
