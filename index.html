@@ -1,79 +1,221 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editor con Vista Previa</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/theme/dracula.min.css">
-    <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            display: flex;
-            height: 100vh;
-            background-color: #282a36; /* Fondo oscuro */
-        }
-
-        .editor-container, .preview-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .editor-container {
-            border-right: 2px solid #44475a; /* Separador visual */
-        }
-
-        .preview-container iframe {
-            flex: 1;
-            border: none;
-            background-color: #f8f8f2; /* Fondo claro para la vista previa */
-        }
-
-        .CodeMirror {
-            height: 100%;
-            font-size: 14px;
-            background-color: #282a36 !important; /* Fondo del editor */
-            color: #f8f8f2 !important; /* Color del texto */
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Editor Emmet con Pesta√±as</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    #tab-bar {
+      display: flex;
+      background: #222;
+      color: white;
+      padding: 5px;
+      align-items: center;
+    }
+    .tab {
+      background: #444;
+      padding: 5px 10px;
+      margin-right: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+    .tab.active {
+      background: #666;
+    }
+    .tab input {
+      background: transparent;
+      border: none;
+      color: white;
+      width: 80px;
+    }
+    .tab .close {
+      margin-left: 5px;
+      cursor: pointer;
+    }
+    #add-tab {
+      background: #28a745;
+      border: none;
+      padding: 5px 10px;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #editor {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    #monaco {
+      width: 50%;
+      height: 100%;
+    }
+    #preview {
+      width: 50%;
+      height: 100%;
+      border: none;
+    }
+  </style>
 </head>
 <body>
-    <div class="editor-container" id="editor-container">
-        <div id="editor"></div>
-    </div>
-    <div class="preview-container">
-        <iframe id="preview"></iframe>
-    </div>
+  <div id="tab-bar">
+    <button id="add-tab">+ Nueva Pesta√±a</button>
+  </div>
+  <div id="editor">
+    <div id="monaco"></div>
+    <iframe id="preview"></iframe>
+  </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/javascript/javascript.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/htmlmixed/htmlmixed.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/xml/xml.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/css/css.js"></script>
-    <script>
-        // Inicializar CodeMirror
-        const editorElement = document.getElementById('editor');
-        const previewIframe = document.getElementById('preview');
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+  <script>
+    let tabs = [];
+    let currentTab = null;
 
-        const editor = CodeMirror(editorElement, {
-            mode: 'htmlmixed', // Resalta HTML, CSS y JS
-            theme: 'dracula', // Tema oscuro
-            lineNumbers: true,
-            matchBrackets: true,
-            autoCloseBrackets: true,
-            lineWrapping: true // Ajusta lÌneas largas
+    require.config({ paths: { vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs" } });
+    require(["vs/editor/editor.main"], function () {
+      window.createEditor = function (value = "") {
+        return monaco.editor.create(document.getElementById("monaco"), {
+          value,
+          language: "html",
+          theme: "vs-dark",
+          automaticLayout: true,
+        });
+      };
+
+      function createTab(name = "Proyecto") {
+        const id = "tab" + Date.now();
+        const data = {
+          id,
+          name,
+          html: "",
+          css: "",
+          js: "",
+          editor: null
+        };
+        tabs.push(data);
+        renderTabs();
+        switchTab(id);
+      }
+
+function renderTabs() {
+  const tabBar = document.getElementById("tab-bar");
+  tabBar.innerHTML = "";
+  tabs.forEach((tab) => {
+    const el = document.createElement("div");
+    el.className = "tab" + (tab.id === currentTab ? " active" : "");
+
+    const input = document.createElement("input");
+    input.value = tab.name;
+    input.oninput = () => {
+      tab.name = input.value;
+    };
+    input.onclick = (e) => e.stopPropagation();
+    el.appendChild(input);
+
+    const close = document.createElement("span");
+    close.className = "close";
+    close.textContent = "‚úï";
+    close.onclick = (e) => {
+      e.stopPropagation();
+      tabs = tabs.filter((t) => t.id !== tab.id);
+      if (currentTab === tab.id && tabs.length > 0) {
+        switchTab(tabs[0].id);
+      } else if (tabs.length === 0) {
+        currentTab = null;
+        editor.dispose();
+      }
+      renderTabs();
+    };
+
+    el.onclick = () => switchTab(tab.id);
+    el.appendChild(close);
+    tabBar.appendChild(el);
+  });
+
+  const addBtn = document.createElement("button");
+  addBtn.id = "add-tab";
+  addBtn.textContent = "+ Nueva Pesta√±a";
+  addBtn.onclick = () => createTab();
+  tabBar.appendChild(addBtn);
+}
+
+      let editor;
+      function switchTab(id) {
+        const tab = tabs.find((t) => t.id === id);
+        if (!tab) return;
+        if (editor) {
+          const model = editor.getModel();
+          const code = model.getValue();
+          if (model.getLanguageId() === "html") tab.html = code;
+          if (model.getLanguageId() === "css") tab.css = code;
+          if (model.getLanguageId() === "javascript") tab.js = code;
+          editor.dispose();
+        }
+
+        currentTab = id;
+        renderTabs();
+
+        const htmlModel = monaco.editor.createModel(tab.html, "html");
+        editor = monaco.editor.create(document.getElementById("monaco"), {
+          model: htmlModel,
+          theme: "vs-dark",
         });
 
-        // Actualizar la vista previa en tiempo real
-        editor.on('change', () => {
-            const content = editor.getValue();
-            previewIframe.srcdoc = content; // Actualiza el contenido del iframe
+        // Emmet Tab support
+        editor.addCommand(monaco.KeyCode.Tab, () => {
+          if (editor.getModel().getLanguageId() === "html" ||
+              editor.getModel().getLanguageId() === "css" ||
+              editor.getModel().getLanguageId() === "javascript") {
+            window.emmetMonaco.emmetHTML.expandAbbreviation(editor);
+          }
         });
 
-        // CÛdigo inicial vacÌo
-        editor.setValue("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Vista Previa</title>\n</head>\n<body>\n    <h1>°Hola, mundo!</h1>\n</body>\n</html>");
-    </script>
+        editor.onDidChangeModelContent(() => updatePreview());
+        updatePreview();
+      }
+
+      function updatePreview() {
+        const tab = tabs.find((t) => t.id === currentTab);
+        if (!tab || !editor) return;
+        const code = editor.getValue();
+        const lang = editor.getModel().getLanguageId();
+        if (lang === "html") tab.html = code;
+        if (lang === "css") tab.css = code;
+        if (lang === "javascript") tab.js = code;
+        const output = `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <style>${tab.css}</style>
+          </head>
+          <body>
+            ${tab.html}
+            <script>${tab.js}<\/script>
+          </body>
+          </html>
+        `;
+        const iframe = document.getElementById("preview");
+        iframe.srcdoc = output;
+      }
+
+      createTab("Proyecto 1");
+    });
+
+    // Emmet Monaco Load
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/@emmetio/monaco-plugin/dist/emmet-monaco.min.js";
+    script.onload = () => {
+      window.emmetMonaco.emmetHTML(monaco);
+    };
+    document.head.appendChild(script);
+  </script>
 </body>
 </html>
